@@ -81,16 +81,23 @@ def construct_Pi(logit_tau_T2, logit_tau_DT, logit_tau_D2):
           [tau_DT, tau_DD, tau_D2, tau_DD],
           [tau_DT, tau_DD, tau_DD, tau_D2]]
 
+def construct_hmm(logit_pi_T, logit_tau_T2, logit_tau_DT, logit_tau_D2):
+  """Constructs the HMM model from its free parameters."""
+  pi = construct_pi(logit_pi_T)
+  Pi = construct_Pi(logit_tau_T2, logit_tau_DT, logit_tau_D2)
+  return tfd.HiddenMarkovModel(
+      initial_distribution=tfd.Categorical(probs=pi),
+      transition_distribution=tfd.Categorical(probs=Pi),
+      observation_distribution=observation_distribution,
+      num_steps=len(observations))
+
 # SPECIFY LOG-LIKELIHOOD TRAINING OBJECTIVE AND OPTIMIZER
 # TODO: Refactor this into an HMM model construction function
 def log_prob():
-  trainable_pi = construct_pi(trainable_logit_pi_T)
-  trainable_Pi = construct_Pi(trainable_logit_tau_T2, trainable_logit_tau_DT, trainable_logit_tau_D2)
-  hmm = tfd.HiddenMarkovModel(
-      initial_distribution=tfd.Categorical(probs=trainable_pi),
-      transition_distribution=tfd.Categorical(probs=trainable_Pi),
-      observation_distribution=observation_distribution,
-      num_steps=len(observations))
+  hmm = construct_hmm(trainable_logit_pi_T,
+                      trainable_logit_tau_T2,
+                      trainable_logit_tau_DT,
+                      trainable_logit_tau_D2)
   return hmm.log_prob(observations)
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
 
@@ -110,7 +117,8 @@ def train_op():
                              (grads[3], trainable_logit_tau_D2),
                              (grads[4], trainable_Sigma)])
 
-  return neg_log_prob, trainable_logit_pi_T, trainable_logit_tau_T2, trainable_logit_tau_DT, trainable_logit_tau_D2, trainable_Sigma
+  return neg_log_prob, trainable_logit_pi_T, trainable_logit_tau_T2, \
+      trainable_logit_tau_DT, trainable_logit_tau_D2, trainable_Sigma
 
 # FIT MODEL
 loss_history = []
@@ -129,40 +137,44 @@ print("Inferred Pi:\n{}".format(Pi))
 print("Inferred Sigma:\n{}".format(tf.linalg.diag(Sigma)))
 print("True Sigma:\n{}".format(tf.math.sqrt(true_Sigma)))
 
-# # RUN FORWARD-BACKWARD ALGORITHM TO COMPUTE MARGINAL POSTERIORS
-# posterior_dists = hmm.posterior_marginals(observations)
-# posterior_probs = posterior_dists.probs_parameter().numpy()
-# 
-# def plot_state_posterior(ax, state_posterior_probs, title):
-#   ln1 = ax.plot(state_posterior_probs, c='blue', lw=3, label='p(state | observations)')
-#   ax.set_ylim(0., 1.1)
-#   ax.set_ylabel('posterior probability')
-#   ax2 = ax.twinx()
-#   ln2 = ax2.plot(observations, c='black', alpha=0.3, label='observed observations')
-#   ax2.set_title(title)
-#   ax2.set_xlabel("time")
-#   lns = ln1+ln2
-#   labs = [l.get_label() for l in lns]
-#   ax.legend(lns, labs, loc=4)
-#   ax.grid(True, color='white')
-#   ax2.grid(False)
-# 
-# # PLOT MARGINAL POSTERIORS PROBABILITIES OF EACH STATE
-# fig = plt.figure(figsize=(10, 10))
-# plot_state_posterior(fig.add_subplot(2, 2, 1),
-#                      posterior_probs[:, 0],
-#                      title="state 0 (rate {:.2f})".format(true_means[0, 0]))
-# plot_state_posterior(fig.add_subplot(2, 2, 2),
-#                      posterior_probs[:, 1],
-#                      title="state 1 (rate {:.2f})".format(true_means[1, 0]))
-# plot_state_posterior(fig.add_subplot(2, 2, 3),
-#                      posterior_probs[:, 2],
-#                      title="state 2 (rate {:.2f})".format(true_means[2, 0]))
-# plot_state_posterior(fig.add_subplot(2, 2, 4),
-#                      posterior_probs[:, 3],
-#                      title="state 3 (rate {:.2f})".format(true_means[3, 0]))
-# plt.tight_layout()
-# 
+# RUN FORWARD-BACKWARD ALGORITHM TO COMPUTE MARGINAL POSTERIORS
+hmm = construct_hmm(logit_pi_T,
+                    logit_tau_T2,
+                    logit_tau_DT,
+                    logit_tau_D2)
+posterior_dists = hmm.posterior_marginals(observations)
+posterior_probs = posterior_dists.probs_parameter().numpy()
+
+def plot_state_posterior(ax, state_posterior_probs, title):
+  ln1 = ax.plot(state_posterior_probs, c='blue', lw=3, label='p(state | observations)')
+  ax.set_ylim(0., 1.1)
+  ax.set_ylabel('posterior probability')
+  ax2 = ax.twinx()
+  ln2 = ax2.plot(observations, c='black', alpha=0.3, label='observed observations')
+  ax2.set_title(title)
+  ax2.set_xlabel("time")
+  lns = ln1+ln2
+  labs = [l.get_label() for l in lns]
+  ax.legend(lns, labs, loc=4)
+  ax.grid(True, color='white')
+  ax2.grid(False)
+
+# PLOT MARGINAL POSTERIORS PROBABILITIES OF EACH STATE
+fig = plt.figure(figsize=(10, 10))
+plot_state_posterior(fig.add_subplot(2, 2, 1),
+                     posterior_probs[:, 0],
+                     title="state 0 (rate {:.2f})".format(true_means[0, 0]))
+plot_state_posterior(fig.add_subplot(2, 2, 2),
+                     posterior_probs[:, 1],
+                     title="state 1 (rate {:.2f})".format(true_means[1, 0]))
+plot_state_posterior(fig.add_subplot(2, 2, 3),
+                     posterior_probs[:, 2],
+                     title="state 2 (rate {:.2f})".format(true_means[2, 0]))
+plot_state_posterior(fig.add_subplot(2, 2, 4),
+                     posterior_probs[:, 3],
+                     title="state 3 (rate {:.2f})".format(true_means[3, 0]))
+plt.tight_layout()
+
 plt.figure()
 plt.plot(loss_history)
 
