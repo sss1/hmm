@@ -10,7 +10,7 @@ from tensorflow_probability import distributions as tfd
 import load_subjects as ls
 
 # GENERATE TRAINING DATA
-true_means = np.array([[40, 30], [15, 5], [25, 15], [50, 40]], dtype=np.float32)
+true_means = np.array([[40, 30], [15, 5], [25, 15], [15, 40]], dtype=np.float32)
 true_durations = [10, 20, 10, 35]
 true_Sigma = [[9.0, 0.0], [0.0, 1.0]]
 
@@ -19,8 +19,7 @@ observations = np.concatenate([
     for (mean, num_steps) in zip(true_means, true_durations)
 ]).astype(np.float32)
 
-plt.plot(observations[:,0])
-plt.plot(observations[:,1])
+plt.plot(observations[:,0], observations[:,1], )
 
 # LOAD DATA
 # TODO(sss1): Restructure data into a tensor
@@ -92,7 +91,6 @@ def construct_hmm(logit_pi_T, logit_tau_T2, logit_tau_DT, logit_tau_D2):
       num_steps=len(observations))
 
 # SPECIFY LOG-LIKELIHOOD TRAINING OBJECTIVE AND OPTIMIZER
-# TODO: Refactor this into an HMM model construction function
 def log_prob():
   hmm = construct_hmm(trainable_logit_pi_T,
                       trainable_logit_tau_T2,
