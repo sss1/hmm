@@ -23,7 +23,7 @@ subjects = ls.load_all_data()
 #   observations[trial_idx, :, :] = subjects['0'].experiments['noshrinky'].datatypes['eyetrack'].trials[trial].data[:trial_len, 1:]
 #   print(subjects['0'].experiments['noshrinky'].datatypes['eyetrack'].trials[trial].proportion_missing)
 #   true_means[trial_idx, :, :, :] = subjects['0'].experiments['noshrinky'].datatypes['trackit'].trials[trial].object_positions[:, :trial_len, :].transpose(1, 0, 2)
-trial = 0
+trial = 1
 observations = np.float32(subjects['0'].experiments['noshrinky'].datatypes['eyetrack'].trials[trial].data[:trial_len, 1:])
 true_means = np.float32(subjects['0'].experiments['noshrinky'].datatypes['trackit'].trials[trial].object_positions[:, :trial_len, :].transpose(1, 0, 2))
 
@@ -59,8 +59,9 @@ trainable_Sigma = tf.Variable([Sigma_0, Sigma_0], name='Sigma')
 # object) are independent. In reality, this might not be the case, e.g., (if the
 # object is moving diagonally), but we leave it to future work to improve this
 # aspect of the model.
-observation_distribution = tfd.MultivariateNormalDiag(
-    loc=true_means, scale_diag=trainable_Sigma)
+observation_distribution = tfd.Masked(
+    tfd.MultivariateNormalDiag(loc=true_means, scale_diag=trainable_Sigma),
+    tf.math.is_finite(observations[:, :1]))
 
 def construct_pi(logit_pi_T):
   """Constructs initial distribution from logit of pi_T."""
@@ -157,6 +158,9 @@ def plot_posteriors():
     plot_state_posterior(fig.add_subplot(4, 2, distractor_idx+1),
                          posterior_probs[:, distractor_idx],
                          title=f"Distractor {distractor_idx}")
+  plt.subplot(4, 2, 8)
+  plt.plot(np.isnan(observations[:, 0]))
+  plt.ylabel('Missing')
   plt.tight_layout()
   plt.show()
 
