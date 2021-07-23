@@ -97,6 +97,7 @@ class Trackit_Data:
         elif row_num == 1: # File metadata values row
           for (metadata_name, metadata_value) in zip(metadata_row, row):
             self.metadata[metadata_name] = metadata_value
+
           continue
 
         # Done reading experiment metadata, start reading (meta)data from trials
@@ -174,7 +175,7 @@ def load_dataset(experiment_ID, datatype_ID, subjects = {}):
   subjects -- (dict mapping subject IDs to Subject instances) dict to which to add new data
   
   """
-  for subject_idx in range(1):
+  for subject_idx in range(50):
     subject_ID = str(subject_idx)
     path = datatype_ID + '/' + experiment_ID + '/' + subject_ID + '.csv'
     print('Loading ' + experiment_ID + '_' + datatype_ID + ' for subject ' + subject_ID)
@@ -216,7 +217,10 @@ def load_all_data():
   # Retain only subjects with at least half non-missing data in at least half
   # their trials, in both conditions
   def subject_is_good(subject):
-    return len(subject.experiments['noshrinky'].trials_to_keep) >= 5
+    good_trials = subject.experiments['noshrinky'].trials_to_keep
+    good_trials = [trial for trial in good_trials if trial >= 1]
+    all_trials = subject.experiments['noshrinky'].datatypes['eyetrack'].trials
+    return len(good_trials) >= 5 and len(all_trials) >= 11
   
   # Filter out subjects with too much missing data
   good_subjects = {subject_ID : subject
@@ -225,4 +229,4 @@ def load_all_data():
   print(str(len(good_subjects)) + ' good subjects: ' + str(good_subjects.keys()))
   bad_subjects = set(subjects.keys()) - set(good_subjects.keys())
   print(str(len(bad_subjects)) + ' bad subjects: ' + str(bad_subjects))
-  return subjects
+  return good_subjects
