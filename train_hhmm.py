@@ -13,9 +13,9 @@ table_as_dict = {'subject_ID': [], 'age': [], 'loss': [], 'pi_D': [], 'pi_O': []
                  'Pi_II': [], 'Sigma_x': [], 'Sigma_y': []}
 for subject in subjects.values():
   table_as_dict['subject_ID'].append(subject.ID)
-  table_as_dict['age'].append(float(subject.experiments['noshrinky'].datatypes['trackit'].metadata['Age']))
+  table_as_dict['age'].append(float(subject.experiments['shrinky'].datatypes['trackit'].metadata['Age']))
   print(f'Training model on subject {subject.ID}...')
-  loss, pi, Pi, Sigma = hhmm.train_model(subject.experiments['noshrinky'])
+  loss, pi, Pi, Sigma = hhmm.train_model(subject.experiments['shrinky'])
 
   table_as_dict['loss'].append(loss)
   table_as_dict['pi_D'].append(pi[0])
@@ -39,4 +39,5 @@ for subject in subjects.values():
   table_as_dict['Sigma_y'].append(Sigma[1])
 
 df = pd.DataFrame(table_as_dict)
-df.to_csv('training_results_by_age_hhmm_test.csv', index=False)
+output_csv = 'training_results_by_age_hhmm_noOE_shrinky.csv'
+df.to_csv(output_csv, index=False)

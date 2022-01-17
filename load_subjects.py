@@ -1,6 +1,7 @@
 import csv, json
 import numpy as np
 from datetime import datetime
+from tqdm import tqdm
 
 import util
 
@@ -10,7 +11,6 @@ class Subject:
     """The only universal attribute of a subject is a unique string identifier, subject_ID"""
     self.ID = ID
     self.experiments = {}
-    print('Creating new subject ' + ID)
 
   def toJSON(self):
     return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=2)
@@ -35,7 +35,6 @@ class Eyetrack_Data:
 
     with open(path, 'r') as file:
       # Allocate space for data, as (timestamp, x, y) for each timepoint
-      print(path)
       self.raw_data = np.zeros((sum(1 for line in csv.reader(file, delimiter = ',')), 3))
 
     with open(path, 'r') as file:
@@ -175,10 +174,11 @@ def load_dataset(experiment_ID, datatype_ID, subjects = {}):
   subjects -- (dict mapping subject IDs to Subject instances) dict to which to add new data
   
   """
-  for subject_idx in range(50):
+  num_subjects = 50
+  print(f'Loading {datatype_ID} data from {experiment_ID} condition for {num_subjects} participants...')
+  for subject_idx in tqdm(range(num_subjects)):
     subject_ID = str(subject_idx)
     path = datatype_ID + '/' + experiment_ID + '/' + subject_ID + '.csv'
-    print('Loading ' + experiment_ID + '_' + datatype_ID + ' for subject ' + subject_ID)
     if not subject_ID in subjects:
       subjects[subject_ID] = Subject(subject_ID)
     if not experiment_ID in subjects[subject_ID].experiments:
@@ -201,27 +201,22 @@ def load_data(subject_ID, datatype_ID, path):
 
   raise ValueError('Unknown datatype ID: ' + datatype_ID)
 
-def load_all_data():
-  subjects = load_dataset('noshrinky', 'eyetrack')
-  subjects = load_dataset('noshrinky', 'trackit', subjects)
-  
-  print('Merging and preprocessing datasets...')
-  # Combine eyetracking with trackit data and perform all preprocessing
-  for subject in subjects.values():
-    for (experiment_ID, experiment) in subject.experiments.items():
-      util.impute_missing_data(experiment)
-      util.break_eyetracking_into_trials(experiment)
-      util.interpolate_trackit_to_eyetracking(experiment)
-      util.filter_experiment(experiment)
-  
-  # Retain only subjects with at least half non-missing data in at least half
-  # their trials, in both conditions
-  def subject_is_good(subject):
-    good_trials = subject.experiments['noshrinky'].trials_to_keep
+
+def _get_good_subjects(subjects):
+
+  # An experiment is good if it has all 11 trials and at least half of
+  # the eye-tracking data is non-missing data in at least half the trials
+  def experiment_is_good(experiment):
+    good_trials = experiment.trials_to_keep
     good_trials = [trial for trial in good_trials if trial >= 1]
-    all_trials = subject.experiments['noshrinky'].datatypes['eyetrack'].trials
+    all_trials = experiment.datatypes['eyetrack'].trials
     return len(good_trials) >= 5 and len(all_trials) >= 11
   
+  # A subject is good if both its experiments are good
+  def subject_is_good(subject):
+    return (experiment_is_good(subject.experiments['shrinky'])
+            and experiment_is_good(subject.experiments['noshrinky']))
+
   # Filter out subjects with too much missing data
   good_subjects = {subject_ID : subject
                    for (subject_ID, subject) in subjects.items()
@@ -230,3 +225,21 @@ def load_all_data():
   bad_subjects = set(subjects.keys()) - set(good_subjects.keys())
   print(str(len(bad_subjects)) + ' bad subjects: ' + str(bad_subjects))
   return good_subjects
+
+
+def load_all_data():
+  subjects = load_dataset('shrinky', 'eyetrack')
+  subjects = load_dataset('shrinky', 'trackit', subjects)
+  subjects = load_dataset('noshrinky', 'eyetrack', subjects)
+  subjects = load_dataset('noshrinky', 'trackit', subjects)
+  
+  print('Merging and preprocessing datasets...')
+  # Combine eyetracking with trackit data and perform all preprocessing
+  for subject in tqdm(subjects.values()):
+    for (experiment_ID, experiment) in subject.experiments.items():
+      util.impute_missing_data(experiment)
+      util.break_eyetracking_into_trials(experiment)
+      util.interpolate_trackit_to_eyetracking(experiment)
+      util.filter_experiment(experiment)
+
+  return _get_good_subjects(subjects)
