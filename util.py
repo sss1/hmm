@@ -1,6 +1,8 @@
 import math
 import numpy as np
 from itertools import chain
+import tensorflow as tf
+
 import load_subjects as ls
 
 # Given a list X, returns a list of changepoints
@@ -205,3 +207,23 @@ def filter_experiment(experiment, min_prop_data_per_trial=0.5, min_prop_trials_p
   experiment.trials_to_keep = [idx for (idx, trial) in enumerate(trials) \
                                   if 1 - trial.proportion_missing >= min_prop_data_per_trial and idx > 0]
   experiment.keep_experiment = (len(experiment.trials_to_keep) >= len(trials) * min_prop_trials_per_subject)
+
+
+def logit(x):
+  """Computes the logit function, i.e. the logistic sigmoid inverse."""
+  return - tf.math.log(1. / x - 1.)
+
+
+def format_model_args_from_row(subject_ID, model_args_df, condition):
+
+  row_condition = (model_args_df['subject_ID'] == int(subject_ID)) & (model_args_df['condition'] == condition)
+  model_args_names = ['pi_D', 'pi_O', 'Pi_DO', 'Pi_DI', 'Pi_OD', 'Pi_OI',
+                      'Pi_ID', 'Pi_IO', 'object_switch_prob', 'Sigma_x',
+                      'Sigma_y']
+  model_args_row = model_args_df[row_condition][model_args_names].values[0]
+
+  # Probability parameters need to be passed as logits
+  model_args = [np.array(logit(x).numpy(), dtype=np.float32) for x in model_args_row[0:9]]
+  # Sigma parameter needs to be passed as length-2 vector
+  model_args += [np.array([model_args_row[9], model_args_row[10]], dtype=np.float32)]
+  return model_args
