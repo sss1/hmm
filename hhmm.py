@@ -13,11 +13,13 @@ import plot_video
 
 trials_to_include = range(1, 11)  # Omit practice trials
 num_trials = len(trials_to_include)
-num_iters = 11  # Number of training iterations
+num_iters = 3001  # Number of training iterations
 num_objects = 7
 STATE_NAMES = [f'D{state}' for state in range(num_objects)] + ['On-Task', 'Disengaged']
 num_modes = 3
 num_states = num_objects + 2  # Add states for On-Task and Disengaged modes
+
+to_remove = []  # To fix any variables to 0, add them to this list
 
 # Initial values for certain parameters
 init_mode_switch_prob = 0.005
@@ -37,6 +39,11 @@ def train_model(experiment):
   true_means, trial_lens, observations = format_data(experiment)
 
   trainable_model_args = get_trainable_parameters()
+
+  # Zero out probabilities for states to exclude from model
+  for var in trainable_model_args:
+    if var.name[:-2] in to_remove:
+      var.assign(-20)
   optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2)
 
   # SPECIFY LOG-LIKELIHOOD TRAINING OBJECTIVE AND OPTIMIZER
@@ -49,8 +56,12 @@ def train_model(experiment):
     """Apply a gradient update."""
     with tf.GradientTape() as tape:
       neg_log_prob = -log_prob()
-    grads = tape.gradient(neg_log_prob, trainable_model_args)
-    optimizer.apply_gradients(zip(grads, trainable_model_args))
+
+    # Omit frozen variables from gradient update
+    to_update = [var for var in trainable_model_args if var.name[:-2] not in to_remove]
+
+    grads = tape.gradient(neg_log_prob, to_update)
+    optimizer.apply_gradients(zip(grads, to_update))
   
     return neg_log_prob, trainable_model_args
  
@@ -248,6 +259,10 @@ def construct_Pi(model_args):
   return Pi
 
 
+def get_valid_data_mask(trial_lens, observations):
+  return tf.math.logical_and(tf.math.is_finite(observations[:, :, 0]), tf.sequence_mask(trial_lens))
+
+
 def construct_hmm(true_means, trial_lens, observations, model_args):
   """Constructs the HMM model from its free parameters."""
 
@@ -257,7 +272,7 @@ def construct_hmm(true_means, trial_lens, observations, model_args):
   y_min = np.nanmin(observations[:, :, 1]) - 1.0
   y_max = np.nanmax(observations[:, :, 1]) + 1.0
   max_trial_len = true_means.shape[1]
-  valid_data_mask = tf.math.logical_and(tf.math.is_finite(observations[:, :, 0]), tf.sequence_mask(trial_lens))
+  valid_data_mask = get_valid_data_mask(trial_lens, observations)
 
   Sigma = model_args[9]
   pi = tfd.Categorical(probs=construct_pi(model_args))
@@ -327,11 +342,13 @@ def plot_histories(loss_history, pi_history, Pi_history, Sigma_history):
   plt.show()
 
 
-def plot_videos(true_means, trial_lens, observations, model_args):
+def get_MLE_states(true_means, trial_lens, observations, model_args):
   hmm = construct_hmm(true_means, trial_lens, observations, model_args)
-  posterior_dists = hmm.posterior_marginals(observations)
-  posterior_probs = posterior_dists.probs_parameter().numpy()
-  posterior_mode = hmm.posterior_mode(observations=observations)
+  return hmm.posterior_mode(observations=observations)
+
+
+def plot_videos(true_means, trial_lens, observations, model_args):
+  posterior_mode = get_MLE_states(true_means, trial_lens, observations, model_args)
 
   for trial in range(num_trials):
     plot_video.plot_trial_video(
@@ -345,9 +362,8 @@ def plot_posteriors(true_means, trial_lens, observations, model_args):
   hmm = construct_hmm(true_means, trial_lens, observations, model_args)
   posterior_dists = hmm.posterior_marginals(observations)
   posterior_probs = posterior_dists.probs_parameter().numpy()
-  posterior_mode = hmm.posterior_mode(observations=observations)
 
-  valid_data_mask = tf.math.logical_and(tf.math.is_finite(observations[:, :, 0]), tf.sequence_mask(trial_lens))
+  valid_data_mask = get_valid_data_mask(trial_lens, observations)
   
   def plot_state_posterior(ax, state_posterior_probs, state_name, legend=False):
     ln1 = ax.plot(state_posterior_probs, c='blue', lw=3, label='p(state | observations)')
