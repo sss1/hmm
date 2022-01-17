@@ -1,6 +1,7 @@
 # Data directories
 eyetrack/
 trackit/
+human_coded/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
