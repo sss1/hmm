@@ -11,8 +11,7 @@ np.set_printoptions(threshold=sys.maxsize, linewidth=144)
 
 import plot_video
 
-trials_to_include = range(1, 11)  # Omit practice trials
-num_trials = len(trials_to_include)
+DEFAULT_TRIALS_TO_INCLUDE = range(1, 11)  # Omit practice trials
 num_iters = 3001  # Number of training iterations
 num_objects = 7
 STATE_NAMES = [f'D{state}' for state in range(num_objects)] + ['On-Task', 'Disengaged']
@@ -34,9 +33,9 @@ def logit(x):
   """Computes the logit function, i.e. the logistic sigmoid inverse."""
   return - tf.math.log(1. / x - 1.)
 
-def train_model(experiment):
+def train_model(experiment, trials_to_include=DEFAULT_TRIALS_TO_INCLUDE):
 
-  true_means, trial_lens, observations = format_data(experiment)
+  true_means, trial_lens, observations = format_data(experiment, trials_to_include)
 
   trainable_model_args = get_trainable_parameters()
 
@@ -101,12 +100,12 @@ def train_model(experiment):
   print(f"Inferred Sigma:\n{tf.linalg.diag(Sigma)}")
 
   # plot_histories(loss_history, pi_history, Pi_history, Sigma_history)
-  # plot_posteriors(true_means, trial_lens, observations, trainable_model_args)
-  # plot_videos(true_means, trial_lens, observations, trainable_model_args)
+  # plot_posteriors(true_means, trial_lens, observations, trainable_model_args, trials_to_include)
+  # plot_videos(true_means, trial_lens, observations, trainable_model_args, trials_to_include)
   return loss, pi, Pi, Sigma, model_args
 
 
-def format_data(experiment):
+def format_data(experiment, trials_to_include):
   """Reformat data from Experiment to Numpy arrays."""
 
   # Compute the lengths of the longest trial to allocate enough space for the data
@@ -114,6 +113,7 @@ def format_data(experiment):
   for trial_idx, trial in enumerate(trials_to_include):
     max_trial_len = max(max_trial_len, experiment.datatypes['eyetrack'].trials[trial].data.shape[0])
   
+  num_trials = len(trials_to_include)
   trial_lens = np.zeros((num_trials), dtype=int)
   observations = np.zeros((num_trials, max_trial_len, 2), dtype=np.float32)
   true_means = np.zeros((num_trials, max_trial_len, num_objects, 2), dtype=np.float32)
@@ -347,17 +347,17 @@ def get_MLE_states(true_means, trial_lens, observations, model_args):
   return hmm.posterior_mode(observations=observations)
 
 
-def plot_videos(true_means, trial_lens, observations, model_args):
+def plot_videos(true_means, trial_lens, observations, model_args, trials_to_include):
   posterior_mode = get_MLE_states(true_means, trial_lens, observations, model_args)
 
-  for trial in range(num_trials):
+  for trial in trials_to_include:
     plot_video.plot_trial_video(
         observations[trial, :trial_lens[trial], :],
         true_means[trial, :trial_lens[trial], :, :],
         posterior_mode[trial, :trial_lens[trial]])
 
 
-def plot_posteriors(true_means, trial_lens, observations, model_args):
+def plot_posteriors(true_means, trial_lens, observations, model_args, trials_to_include):
   # RUN FORWARD-BACKWARD ALGORITHM TO COMPUTE MARGINAL POSTERIORS
   hmm = construct_hmm(true_means, trial_lens, observations, model_args)
   posterior_dists = hmm.posterior_marginals(observations)
@@ -374,7 +374,7 @@ def plot_posteriors(true_means, trial_lens, observations, model_args):
     ax.grid(True, color='white')
     ax.set_ylabel(state_name)
   
-  for trial in range(num_trials):
+  for trial in trials_to_include:
     # PLOT MARGINAL POSTERIORS PROBABILITIES OF EACH STATE
     fig = plt.figure(figsize=(10, 10))
     for state in range(num_states):
