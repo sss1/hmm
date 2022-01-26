@@ -12,7 +12,7 @@ np.set_printoptions(threshold=sys.maxsize, linewidth=144)
 import plot_video
 
 DEFAULT_TRIALS_TO_INCLUDE = range(1, 11)  # Omit practice trials
-num_iters = 3001  # Number of training iterations
+num_iters = 31  # Number of training iterations
 num_objects = 7
 STATE_NAMES = [f'D{state}' for state in range(num_objects)] + ['On-Task', 'Disengaged']
 num_modes = 3
@@ -108,8 +108,8 @@ def train_model(experiment, trials_to_include=DEFAULT_TRIALS_TO_INCLUDE):
 def test_model(experiment, model_args, trials_to_include):
   """Returns the log-likelihood of a trained model on a test dataset."""
   true_means, trial_lens, observations = format_data(experiment, trials_to_include)
-  hmm = construct_hmm(true_means, trial_lens, observations, trainable_model_args)
-  return tf.math.reduce_sum(hmm.log_prob(observations))
+  hmm = construct_hmm(true_means, trial_lens, observations, model_args)
+  return tf.math.reduce_sum(hmm.log_prob(observations)).numpy()
 
 
 def format_data(experiment, trials_to_include):
