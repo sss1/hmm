@@ -105,6 +105,13 @@ def train_model(experiment, trials_to_include=DEFAULT_TRIALS_TO_INCLUDE):
   return loss, pi, Pi, Sigma, model_args
 
 
+def test_model(experiment, model_args, trials_to_include):
+  """Returns the log-likelihood of a trained model on a test dataset."""
+  true_means, trial_lens, observations = format_data(experiment, trials_to_include)
+  hmm = construct_hmm(true_means, trial_lens, observations, trainable_model_args)
+  return tf.math.reduce_sum(hmm.log_prob(observations))
+
+
 def format_data(experiment, trials_to_include):
   """Reformat data from Experiment to Numpy arrays."""
 
