@@ -12,7 +12,7 @@ np.set_printoptions(threshold=sys.maxsize, linewidth=144)
 import plot_video
 
 DEFAULT_TRIALS_TO_INCLUDE = range(1, 11)  # Omit practice trials
-num_iters = 31  # Number of training iterations
+num_iters = 3001  # Number of training iterations
 num_objects = 7
 STATE_NAMES = [f'D{state}' for state in range(num_objects)] + ['On-Task', 'Disengaged']
 num_modes = 3
