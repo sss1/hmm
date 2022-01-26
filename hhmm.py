@@ -103,7 +103,7 @@ def train_model(experiment):
   # plot_histories(loss_history, pi_history, Pi_history, Sigma_history)
   # plot_posteriors(true_means, trial_lens, observations, trainable_model_args)
   # plot_videos(true_means, trial_lens, observations, trainable_model_args)
-  return loss, pi, Pi, Sigma
+  return loss, pi, Pi, Sigma, model_args
 
 
 def format_data(experiment):

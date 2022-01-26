@@ -5,7 +5,6 @@ import load_subjects as ls
 
 # LOAD DATA
 subjects = ls.load_all_data()
-num_subjects = len(subjects)
 
 table_as_dict = {'subject_ID': [], 'age': [], 'loss': [], 'pi_D': [], 'pi_O': [], 'pi_I': [],
                  'Pi_DD_stay': [], 'Pi_DD_switch': [], 'Pi_DO': [], 'Pi_DI': [], 'Pi_OD': [],
@@ -15,7 +14,7 @@ for subject in subjects.values():
   table_as_dict['subject_ID'].append(subject.ID)
   table_as_dict['age'].append(float(subject.experiments['shrinky'].datatypes['trackit'].metadata['Age']))
   print(f'Training model on subject {subject.ID}...')
-  loss, pi, Pi, Sigma = hhmm.train_model(subject.experiments['shrinky'])
+  loss, pi, Pi, Sigma, _ = hhmm.train_model(subject.experiments['shrinky'])
 
   table_as_dict['loss'].append(loss)
   table_as_dict['pi_D'].append(pi[0])
