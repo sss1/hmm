@@ -12,6 +12,10 @@ np.set_printoptions(threshold=sys.maxsize, linewidth=144)
 import plot_video
 
 DEFAULT_TRIALS_TO_INCLUDE = range(1, 11)  # Omit practice trials
+X_MIN = -200
+X_MAX = 2110
+Y_MIN = -100
+Y_MAX = 1200
 num_iters = 3001  # Number of training iterations
 num_objects = 7
 STATE_NAMES = [f'D{state}' for state in range(num_objects)] + ['On-Task', 'Disengaged']
@@ -164,7 +168,7 @@ def get_trainable_parameters():
       trainable_logit_object_switch_prob, trainable_Sigma]
  
 
-def construct_emission_distribution(true_means, Sigma, x_min, x_max, y_min, y_max, valid_data_mask):
+def construct_emission_distribution(true_means, Sigma, valid_data_mask):
   """Construct distribution of observations for each state.
 
   Because of constraints in batching in TensorFlow Probability, we construct
@@ -187,8 +191,8 @@ def construct_emission_distribution(true_means, Sigma, x_min, x_max, y_min, y_ma
 
   # Uniform distribution of gaze when not following an object.
   off_task_distribution = tfd.Independent(
-      tfd.Uniform(low=np.array([x_min, y_min], dtype=np.float32),
-                  high=np.array([x_max, y_max], dtype=np.float32)),
+      tfd.Uniform(low=np.array([X_MIN, Y_MIN], dtype=np.float32),
+                  high=np.array([X_MAX, Y_MAX], dtype=np.float32)),
       reinterpreted_batch_ndims=1)
 
   observation_distribution = tfd.Mixture(
@@ -272,17 +276,13 @@ def construct_hmm(true_means, trial_lens, observations, model_args):
   """Constructs the HMM model from its free parameters."""
 
   # Dimensions of screen to be used for off-task distribution
-  x_min = np.nanmin(observations[:, :, 0]) - 1.0
-  x_max = np.nanmax(observations[:, :, 0]) + 1.0
-  y_min = np.nanmin(observations[:, :, 1]) - 1.0
-  y_max = np.nanmax(observations[:, :, 1]) + 1.0
   max_trial_len = true_means.shape[1]
   valid_data_mask = get_valid_data_mask(trial_lens, observations)
 
   Sigma = model_args[9]
   pi = tfd.Categorical(probs=construct_pi(model_args))
   Pi = tfd.Categorical(probs=construct_Pi(model_args))
-  observation_distribution = construct_emission_distribution(true_means, Sigma, x_min, x_max, y_min, y_max, valid_data_mask)
+  observation_distribution = construct_emission_distribution(true_means, Sigma, valid_data_mask)
   return tfd.HiddenMarkovModel(
       initial_distribution=pi,
       transition_distribution=Pi,
