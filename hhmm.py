@@ -18,8 +18,6 @@ STATE_NAMES = [f'D{state}' for state in range(num_objects)] + ['On-Task', 'Disen
 num_modes = 3
 num_states = num_objects + 2  # Add states for On-Task and Disengaged modes
 
-to_remove = []  # To fix any variables to 0, add them to this list
-
 # Initial values for certain parameters
 init_mode_switch_prob = 0.005
 init_object_switch_prob = 0.05
@@ -33,7 +31,7 @@ def logit(x):
   """Computes the logit function, i.e. the logistic sigmoid inverse."""
   return - tf.math.log(1. / x - 1.)
 
-def train_model(experiment, trials_to_include=DEFAULT_TRIALS_TO_INCLUDE):
+def train_model(experiment, trials_to_include=DEFAULT_TRIALS_TO_INCLUDE, to_remove=[]):
 
   true_means, trial_lens, observations = format_data(experiment, trials_to_include)
 
@@ -42,7 +40,7 @@ def train_model(experiment, trials_to_include=DEFAULT_TRIALS_TO_INCLUDE):
   # Zero out probabilities for states to exclude from model
   for var in trainable_model_args:
     if var.name[:-2] in to_remove:
-      var.assign(-20)
+      var.assign(-30)
   optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2)
 
   # SPECIFY LOG-LIKELIHOOD TRAINING OBJECTIVE AND OPTIMIZER
