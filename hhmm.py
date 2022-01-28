@@ -12,11 +12,11 @@ np.set_printoptions(threshold=sys.maxsize, linewidth=144)
 import plot_video
 
 DEFAULT_TRIALS_TO_INCLUDE = range(1, 11)  # Omit practice trials
-X_MIN = -200
-X_MAX = 2110
-Y_MIN = -100
-Y_MAX = 1200
-num_iters = 3001  # Number of training iterations
+X_MIN = -300.0
+X_MAX = 2200.0
+Y_MIN = -200.0
+Y_MAX = 1400.0
+num_iters = 201  # Number of training iterations
 num_objects = 7
 STATE_NAMES = [f'D{state}' for state in range(num_objects)] + ['On-Task', 'Disengaged']
 num_modes = 3
@@ -79,7 +79,7 @@ def train_model(experiment, trials_to_include=DEFAULT_TRIALS_TO_INCLUDE, to_remo
     # Format probabilities nicely for printing.
     pi = np.array([tau.numpy() for tau in construct_pi(model_args)])
     Pi = np.array([[tau.numpy() for tau in row] for row in construct_Pi(model_args)])
-    Sigma = model_args[9]
+    Sigma = model_args[10]
   
     if np.any(pi < 0):
       print(pi)
@@ -144,16 +144,20 @@ def get_trainable_parameters():
   # constraining the probabilities themselves.
   trainable_logit_pi_D = tf.Variable(logit(1/num_modes), name='logit_pi_D', dtype='float32')
   trainable_logit_pi_O = tf.Variable(logit(1/num_modes), name='logit_pi_O', dtype='float32')
+  trainable_logit_pi_I = tf.Variable(logit(1/num_modes), name='logit_pi_I', dtype='float32')
   
   # Pi is the transition matrix of the object of attention.
   # We represent it in terms of logits too.
-  trainable_logit_Pi_DO = tf.Variable(logit(init_mode_switch_prob), name='logit_Pi_DO', dtype='float32')
-  trainable_logit_Pi_DI = tf.Variable(logit(init_mode_switch_prob), name='logit_Pi_DI', dtype='float32')
-  trainable_logit_Pi_OD = tf.Variable(logit(init_mode_switch_prob), name='logit_Pi_OD', dtype='float32')
-  trainable_logit_Pi_OI = tf.Variable(logit(init_mode_switch_prob), name='logit_Pi_OI', dtype='float32')
-  trainable_logit_Pi_ID = tf.Variable(logit(init_mode_switch_prob), name='logit_Pi_ID', dtype='float32')
-  trainable_logit_Pi_IO = tf.Variable(logit(init_mode_switch_prob), name='logit_Pi_IO', dtype='float32')
-  trainable_logit_object_switch_prob = tf.Variable(logit(init_object_switch_prob), name='logit_object_switch_prob', dtype='float32')
+  init_logit = logit(init_mode_switch_prob)
+  trainable_logit_Pi_DO = tf.Variable(init_logit, name='logit_Pi_DO', dtype='float32')
+  trainable_logit_Pi_DI = tf.Variable(init_logit, name='logit_Pi_DI', dtype='float32')
+  trainable_logit_Pi_OD = tf.Variable(init_logit, name='logit_Pi_OD', dtype='float32')
+  trainable_logit_Pi_OI = tf.Variable(init_logit, name='logit_Pi_OI', dtype='float32')
+  trainable_logit_Pi_ID = tf.Variable(init_logit, name='logit_Pi_ID', dtype='float32')
+  trainable_logit_Pi_IO = tf.Variable(init_logit, name='logit_Pi_IO', dtype='float32')
+  trainable_logit_object_switch_prob = tf.Variable(logit(init_object_switch_prob),
+                                                   name='logit_object_switch_prob',
+                                                   dtype='float32')
 
   # Sigma is the (diagonal) covariance matrix of gaze around the attended object.
   # We assume that the x- and y-components of the variance (around the attended
@@ -162,10 +166,10 @@ def get_trainable_parameters():
   # aspect of the model.
   trainable_Sigma = tf.Variable([Sigma_0, Sigma_0], name='Sigma')
 
-  return [trainable_logit_pi_D, trainable_logit_pi_O, trainable_logit_Pi_DO, \
-      trainable_logit_Pi_DI, trainable_logit_Pi_OD, trainable_logit_Pi_OI, \
-      trainable_logit_Pi_ID, trainable_logit_Pi_IO, \
-      trainable_logit_object_switch_prob, trainable_Sigma]
+  return [trainable_logit_pi_D, trainable_logit_pi_O, trainable_logit_pi_I, \
+          trainable_logit_Pi_DO, trainable_logit_Pi_DI, trainable_logit_Pi_OD, \
+          trainable_logit_Pi_OI, trainable_logit_Pi_ID, trainable_logit_Pi_IO, \
+          trainable_logit_object_switch_prob, trainable_Sigma]
  
 
 def construct_emission_distribution(true_means, Sigma, valid_data_mask):
@@ -204,19 +208,16 @@ def construct_emission_distribution(true_means, Sigma, valid_data_mask):
 
 
 def construct_pi(model_args):
-  """Constructs initial distribution from logits of pi_D and pi_O."""
-  logit_pi_D, logit_pi_O = model_args[:2]
-  pi_D = sigmoid(logit_pi_D)
-  # Multiply by (1 - p_D) to ensure p_D + p_O <= 1
-  pi_O = (1 - pi_D) * sigmoid(logit_pi_O)
-  pi_I = 1 - (pi_D + pi_O)
+  """Constructs initial distribution from logits."""
+  pi_probs = tf.nn.softmax(model_args[:3])
+  pi_D, pi_O, pi_I = [pi_probs[0], pi_probs[1], pi_probs[2]]
   return num_objects * [pi_D/num_objects] + [pi_O, pi_I]
 
 
 def construct_Pi(model_args):
   """Constructs transition matrix from logits of tau_T2, tau_DT, and tau_D2."""
 
-  logit_Pi_DO, logit_Pi_DI, logit_Pi_OD, logit_Pi_OI, logit_Pi_ID, logit_Pi_IO, logit_object_switch_prob = model_args[2:9]
+  logit_Pi_DO, logit_Pi_DI, logit_Pi_OD, logit_Pi_OI, logit_Pi_ID, logit_Pi_IO, logit_object_switch_prob = model_args[3:10]
 
   Pi_DO = sigmoid(logit_Pi_DO)
   Pi_DI = sigmoid(logit_Pi_DI)
@@ -279,7 +280,7 @@ def construct_hmm(true_means, trial_lens, observations, model_args):
   max_trial_len = true_means.shape[1]
   valid_data_mask = get_valid_data_mask(trial_lens, observations)
 
-  Sigma = model_args[9]
+  Sigma = model_args[10]
   pi = tfd.Categorical(probs=construct_pi(model_args))
   Pi = tfd.Categorical(probs=construct_Pi(model_args))
   observation_distribution = construct_emission_distribution(true_means, Sigma, valid_data_mask)
