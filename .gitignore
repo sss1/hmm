@@ -7,6 +7,9 @@ human_coded/
 *.png
 *.pdf
 
+# Log files
+*.out
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
