@@ -72,12 +72,21 @@ melted_df = pd.read_csv('cached_dev_melted_df.csv')
 joint_df = pd.read_csv('cached_dev_joint_df.csv')
 
 melted_df = melted_df[melted_df['Condition'] == 'Endogenous']
-melted_df = melted_df.replace({'Optimally Engaged': 'Task Engaged'})
+melted_df = melted_df.replace({'Inattentive': 'Disengaged'})
 
 plt.rcParams.update({'font.size': 20})
 sns.lmplot(x='Age (years)', y='Proportion of Time', col='Mode',
            data=melted_df, legend=False)
 plt.ylim((-0.05, 1.05))
+
+
+# Print Mode and R^2 value on each linear regression plot
+r2s = [0.41, 0.37, 0.02]
+titles = ['Distractible', 'Optimally Engaged', 'Disengaged']
+for subplot, r2, title in zip(plt.gcf().get_axes(), r2s, titles):
+  subplot.text(5.3, 0.85, f'$R^2 = {r2}$')
+  subplot.set_title(f'{title} Mode')
+
 # plt.legend(loc='upper right')
 plt.tight_layout()
 
