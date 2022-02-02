@@ -61,9 +61,15 @@ except FileNotFoundError:
   
   df.to_csv(cache_filename)
 
-df = df.groupby('subject_ID')[['O', 'loc_acc']].mean()
-r, p = scipy.stats.pearsonr(df['O'], df['loc_acc'])
-delta = 1.96 / math.sqrt(len(df) - 3)
-lower = math.tanh(math.atanh(r) - delta)
-upper = math.tanh(math.atanh(r) + delta)
-print(f'Pearson correlation: {r:.2f}  ({lower:.2f}, {upper:.2f})    p-value: {p:.3f}')
+df = df.groupby('subject_ID')[['D', 'O', 'I', 'loc_acc']].mean()
+for mode in ['D', 'O', 'I']:
+  r, p = scipy.stats.pearsonr(df[mode], df['loc_acc'])
+  delta = 1.96 / math.sqrt(len(df) - 3)
+  lower = math.tanh(math.atanh(r) - delta)
+  upper = math.tanh(math.atanh(r) + delta)
+  print(f'Pearson correlation between {mode} and loc_acc: {r:.2f}  ({lower:.2f}, {upper:.2f})    p-value: {p:.3f}')
+  sns.lmplot(x=mode, y='loc_acc', data=df, legend=False)
+  plt.xlim((0, 1))
+  plt.ylim((0, 1))
+
+plt.show()
