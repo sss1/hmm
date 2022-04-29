@@ -133,14 +133,14 @@ class Trackit_Data:
           num_rows_after_BEGIN_New_Trial += 1
           if row[-1] == 'Blinking object index':
             self.trials[-1].is_supervised = True
-            self.trials[-1].meta_data['object_names'] = [name[:-2] for name in row[2:-1:2]]
+            self.trials[-1].trial_metadata['object_names'] = [name[:-2] for name in row[2:-1:2]]
             self.trials[-1].blinking_object_IDs = []
           else:
             self.trials[-1].is_supervised = False
-            self.trials[-1].meta_data['object_names'] = [name[:-2] for name in row[2::2]]
+            self.trials[-1].trial_metadata['object_names'] = [name[:-2] for name in row[2::2]]
+
 
         else: # Otherwise, the row should be a normal data row, and the first entry of the row should be the relative timestamp
-          # test = int(row[0])
           self.trials[-1].rel_timestamps.append(int(row[0]))
           self.trials[-1].timestamps.append(int(row[1]))
           for object_index in range(self.trials[-1].num_objects):
